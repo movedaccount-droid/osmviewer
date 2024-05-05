@@ -1,7 +1,6 @@
 package ac.uk.hope.osmviewer;
 
 import android.Manifest;
-import android.content.Context;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -12,10 +11,17 @@ import android.view.ViewGroup;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.preference.PreferenceManager;
 
+import com.google.android.material.snackbar.Snackbar;
+
+import ac.uk.hope.osmviewer.MultiCompassOverlay.ITappableCompassListener;
+import ac.uk.hope.osmviewer.MultiCompassOverlay.TappableCompassOverlay;
+import ac.uk.hope.osmviewer.OrientationProviderMapView.OrientationProviderMapView;
+import ac.uk.hope.osmviewer.OrientationRotationGestureOverlay.OrientationRotationGestureOverlay;
 import ac.uk.hope.osmviewer.databinding.FragmentFirstBinding;
 
 import org.osmdroid.api.IMapController;
@@ -25,23 +31,36 @@ import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.ScaleBarOverlay;
 import org.osmdroid.views.overlay.compass.CompassOverlay;
-import org.osmdroid.views.overlay.compass.InternalCompassOrientationProvider;
 import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
+
+enum CompassMode {
+    SHOW_NORTH,
+    COMPASS_FOLLOWS_MAP,
+    MAP_FOLLOWS_COMPASS
+}
 
 public class FirstFragment extends Fragment {
 
     private FragmentFirstBinding binding;
     private static final String TAG = FirstFragment.class.getSimpleName();
+
+    // permissions launchers
     private ActivityResultLauncher<String[]> mLocationPermissionLauncher;
     private ActivityResultLauncher<String[]> mNetworkPermissionLauncher;
     private ActivityResultLauncher<String> mStoragePermissionLauncher;
-    private MapView mMap;
+
+    // map components
+    private OrientationProviderMapView mMap;
     private CompassOverlay mCompassOverlay;
     private MyLocationNewOverlay mLocationOverlay;
     private RotationGestureOverlay mRotationGestureOverlay;
     private ScaleBarOverlay mScaleBarOverlay;
+
+    // map parameters
+    CompassMode mCompassMode;
+    CompassMode mPreviousCompassMode;
 
 
     @Override
@@ -128,7 +147,7 @@ public class FirstFragment extends Fragment {
         mStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         // show map
-        mMap = (MapView) view.findViewById(R.id.map);
+        mMap = (OrientationProviderMapView) view.findViewById(R.id.map);
         mMap.setTileSource(TileSourceFactory.MAPNIK);
         mMap.setMultiTouchControls(true);
         IMapController mapController = mMap.getController();
@@ -143,19 +162,32 @@ public class FirstFragment extends Fragment {
         mLocationOverlay.enableMyLocation();
         mMap.getOverlays().add(this.mLocationOverlay);
 
-        // add compass
-        mCompassOverlay = new CompassOverlay(
-                requireActivity(),
-                new InternalCompassOrientationProvider(requireActivity()),
-                mMap
-        );
-        mCompassOverlay.enableCompass();
-        mMap.getOverlays().add(this.mCompassOverlay);
-
         // allow multi-touch rotation
         mRotationGestureOverlay = new RotationGestureOverlay(mMap);
         mRotationGestureOverlay.setEnabled(true);
         mMap.getOverlays().add(mRotationGestureOverlay);
+
+        // add compass
+        mCompassOverlay = new TappableCompassOverlay(
+                requireActivity(),
+                // new InternalCompassOrientationProvider(requireActivity()),
+                mMap,
+                new ITappableCompassListener() {
+                    @Override
+                    public void onTap() {
+                        mMap.setMapOrientation(0);
+                        switchCompassMode(CompassMode.SHOW_NORTH);
+                    }
+
+                    @Override
+                    public void onLongPress() {
+                        selectCompassMode();
+                    }
+                },
+                mMap
+        );
+        mCompassOverlay.enableCompass();
+        mMap.getOverlays().add(this.mCompassOverlay);
 
         // show a scale bar
         final DisplayMetrics dm = requireActivity().getResources().getDisplayMetrics();
@@ -163,6 +195,31 @@ public class FirstFragment extends Fragment {
         mScaleBarOverlay.setCentred(true);
         mScaleBarOverlay.setScaleBarOffset(dm.widthPixels / 2, 10);
         mMap.getOverlays().add(this.mScaleBarOverlay);
+
+    }
+
+    private void selectCompassMode() {
+        String[] modes = {"Show north", "Compass follows map", "Map follows compass"};
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireActivity());
+        builder.setTitle("Compass Mode")
+                .setPositiveButton(R.string.confirm, (dialog, which) -> {
+
+                })
+                .setNegativeButton(R.string.cancel, (dialog, which) -> {
+
+                })
+                .setSingleChoiceItems(modes, 0, (dialog, which) -> {
+
+                });
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+    }
+
+    private void switchCompassMode(CompassMode newMode) {
+        mPreviousCompassMode = mCompassMode;
+        mCompassMode = newMode;
+        // update our compass accordingly
 
     }
 
