@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.FragmentNavigator;
 import androidx.navigation.fragment.NavHostFragment;
@@ -26,14 +27,14 @@ public class SecondFragment extends Fragment {
 
         // handle shared element transition
         setSharedElementEnterTransition(
-                TransitionInflater
-                        .from(requireActivity())
-                        .inflateTransition(R.transition.change_bounds)
+            TransitionInflater
+                .from(requireActivity())
+                .inflateTransition(R.transition.change_bounds)
         );
         setSharedElementReturnTransition(
-                TransitionInflater
-                        .from(requireActivity())
-                        .inflateTransition(R.transition.change_bounds)
+            TransitionInflater
+                .from(requireActivity())
+                .inflateTransition(R.transition.change_bounds)
         );
 
         binding = FragmentSecondBinding.inflate(inflater, container, false);
@@ -45,11 +46,11 @@ public class SecondFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         // instantiate transition for drawer opening
-        OrientableMapView mMap = (OrientableMapView) view.findViewById(R.id.map);
+        OrientableMapView innerMap = (OrientableMapView) view.findViewById(R.id.inner_map);
 
         binding.buttonSecond.setOnClickListener(v -> {
             FragmentNavigator.Extras extras = new FragmentNavigator.Extras.Builder()
-                    .addSharedElement(mMap, "fullscreenMap")
+                    .addSharedElement(innerMap, ViewCompat.getTransitionName(innerMap))
                     .build();
             NavHostFragment.findNavController(SecondFragment.this).navigate(
                     R.id.action_SecondFragment_to_FirstFragment,
