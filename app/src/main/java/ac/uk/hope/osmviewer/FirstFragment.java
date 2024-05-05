@@ -3,9 +3,11 @@ package ac.uk.hope.osmviewer;
 import android.Manifest;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.transition.TransitionInflater;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -13,6 +15,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.navigation.fragment.FragmentNavigator;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.preference.PreferenceManager;
 
@@ -28,6 +31,8 @@ import org.osmdroid.api.IMapController;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
 import org.osmdroid.views.overlay.ScaleBarOverlay;
 import org.osmdroid.views.overlay.compass.CompassOverlay;
 import org.osmdroid.views.overlay.compass.InternalCompassOrientationProvider;
@@ -64,8 +69,6 @@ public class FirstFragment
             @NonNull LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
-
-        loadPreferences();
 
         // register permissions callbacks
         mLocationPermissionLauncher = registerForActivityResult(
@@ -112,18 +115,42 @@ public class FirstFragment
             }
         );
 
+        loadPreferences();
+
+        // handle shared element transition
+        setSharedElementEnterTransition(
+            TransitionInflater
+                .from(requireActivity())
+                .inflateTransition(R.transition.change_bounds)
+        );
+        setSharedElementReturnTransition(
+            TransitionInflater
+                .from(requireActivity())
+                .inflateTransition(R.transition.change_bounds)
+        );
+
         binding = FragmentFirstBinding.inflate(inflater, container, false);
         return binding.getRoot();
 
     }
 
+    @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        binding.buttonFirst.setOnClickListener(v ->
-                NavHostFragment.findNavController(FirstFragment.this)
-                        .navigate(R.id.action_FirstFragment_to_SecondFragment)
-        );
+        // instantiate transition for drawer opening
+        mMap = (OrientableMapView) view.findViewById(R.id.map);
+
+        binding.buttonFirst.setOnClickListener(v -> {
+            FragmentNavigator.Extras extras = new FragmentNavigator.Extras.Builder()
+                    .addSharedElement(mMap, "shortMap")
+                    .build();
+            NavHostFragment.findNavController(FirstFragment.this).navigate(
+                    R.id.action_FirstFragment_to_SecondFragment,
+                    null,
+                    null,
+                    extras);
+        });
 
         // setup permissions for the map
         // TODO: follow best guidance in https://developer.android.com/training/permissions/requesting#java
@@ -140,7 +167,6 @@ public class FirstFragment
         mStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         // show map
-        mMap = (OrientableMapView) view.findViewById(R.id.map);
         mMap.setTileSource(TileSourceFactory.MAPNIK);
         mMap.setMultiTouchControls(true);
         IMapController mapController = mMap.getController();
@@ -180,6 +206,18 @@ public class FirstFragment
 
         // update everything we just made to our saved values
         useCompassMode(mCompassMode);
+
+        Marker startMarker = new Marker(mMap) {
+            @Override
+            public boolean onSingleTapUp(MotionEvent e, MapView mapView) {
+                closeInfoWindow();
+                Log.d(TAG, "tapped");
+                return true;
+            }
+        };
+        startMarker.setPosition(startPoint);
+        startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        mMap.getOverlays().add(startMarker);
     }
 
     // === COMPASS PRESS HANDLING ===
