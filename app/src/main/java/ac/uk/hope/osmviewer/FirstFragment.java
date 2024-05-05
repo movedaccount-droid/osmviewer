@@ -1,6 +1,7 @@
 package ac.uk.hope.osmviewer;
 
 import android.Manifest;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -64,6 +65,8 @@ public class FirstFragment
             Bundle savedInstanceState
     ) {
 
+        loadPreferences();
+
         // register permissions callbacks
         mLocationPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
@@ -108,11 +111,6 @@ public class FirstFragment
                 }
             }
         );
-
-        // load settings from sharedpreferences
-        // TODO: should this be named as in 7 creating?
-        Configuration.getInstance().load(requireActivity(),
-                PreferenceManager.getDefaultSharedPreferences(requireActivity()));
 
         binding = FragmentFirstBinding.inflate(inflater, container, false);
         return binding.getRoot();
@@ -163,8 +161,7 @@ public class FirstFragment
         mMap.getOverlays().add(mRotationGestureOverlay);
 
         // add compass
-        mCompassMode = CompassMode.SHOW_NORTH;
-        mPreviousCompassMode = CompassMode.MAP_FOLLOWS_COMPASS;
+        // TODO: should this be named as in 7 creating?
         mCompassOverlay = new TappableCompassOverlay(
                 requireActivity(),
                 new InternalCompassOrientationProvider(requireActivity()),
@@ -246,16 +243,45 @@ public class FirstFragment
         }
     }
 
+    // === PREFERENCES AND RESUME HANDLING ===
+
+    private final String SAVED_MODE = "savedMode";
+    private final String PREVIOUS_SAVED_MODE = "previousSavedMode";
+
+    private void loadPreferences() {
+        // TODO: should this be named as in 7 creating?
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireActivity());
+        Configuration.getInstance().load(requireActivity(), prefs);
+        mCompassMode = CompassMode.fromId(prefs.getInt(SAVED_MODE, 1));
+        mPreviousCompassMode = CompassMode.fromId(prefs.getInt(PREVIOUS_SAVED_MODE, 2));
+    }
+
+    private void savePreferences() {
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireActivity());
+        SharedPreferences.Editor prefsEditor = prefs.edit();
+            prefsEditor.putInt(SAVED_MODE, mCompassMode.getId());
+            prefsEditor.putInt(PREVIOUS_SAVED_MODE, mPreviousCompassMode.getId());
+            prefsEditor.apply();
+    }
+
     @Override
     public void onResume() {
         super.onResume();
         mMap.onResume();
+        loadPreferences();
     }
 
     @Override
     public void onPause() {
         super.onPause();
         mMap.onPause();
+        savePreferences();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        savePreferences();
     }
 
     @Override
