@@ -12,8 +12,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.preference.PreferenceManager;
 
@@ -22,7 +20,7 @@ import ac.uk.hope.osmviewer.MultiCompassOverlay.CompassModeFragment;
 import ac.uk.hope.osmviewer.MultiCompassOverlay.CompassModeFragmentListener;
 import ac.uk.hope.osmviewer.MultiCompassOverlay.TappableCompassListener;
 import ac.uk.hope.osmviewer.MultiCompassOverlay.TappableCompassOverlay;
-import ac.uk.hope.osmviewer.OrientationProviderMapView.OrientationProviderMapView;
+import ac.uk.hope.osmviewer.OrientableMapView.OrientableMapView;
 import ac.uk.hope.osmviewer.databinding.FragmentFirstBinding;
 
 import org.osmdroid.api.IMapController;
@@ -49,7 +47,7 @@ public class FirstFragment
     private ActivityResultLauncher<String> mStoragePermissionLauncher;
 
     // map components
-    private OrientationProviderMapView mMap;
+    private OrientableMapView mMap;
     private CompassOverlay mCompassOverlay;
     private MyLocationNewOverlay mLocationOverlay;
     private RotationGestureOverlay mRotationGestureOverlay;
@@ -144,7 +142,7 @@ public class FirstFragment
         mStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         // show map
-        mMap = (OrientationProviderMapView) view.findViewById(R.id.map);
+        mMap = (OrientableMapView) view.findViewById(R.id.map);
         mMap.setTileSource(TileSourceFactory.MAPNIK);
         mMap.setMultiTouchControls(true);
         IMapController mapController = mMap.getController();
@@ -227,16 +225,24 @@ public class FirstFragment
     }
 
     private void useCompassMode(CompassMode mode) {
-        switch (mode) {
-            case SHOW_NORTH:
-                mCompassOverlay.enableCompass(
-                        new InternalCompassOrientationProvider(requireActivity())
-                );
-                break;
-            case COMPASS_FOLLOWS_MAP:
-                mCompassOverlay.enableCompass(mMap);
-                break;
-            case MAP_FOLLOWS_COMPASS: break;
+        // TODO: compass mode should be saved in settings
+        // enable or disable orientation producer/consumer pairing based on mode
+        if (mode == CompassMode.MAP_FOLLOWS_COMPASS) {
+            mMap.enableOrientation(
+                    new InternalCompassOrientationProvider(requireActivity())
+            );
+            mRotationGestureOverlay.setEnabled(false);
+        } else {
+            mMap.disableOrientation();
+            mRotationGestureOverlay.setEnabled(true);
+        }
+
+        if (mode == CompassMode.COMPASS_FOLLOWS_MAP) {
+            mCompassOverlay.enableCompass(mMap);
+        } else {
+            mCompassOverlay.enableCompass(
+                    new InternalCompassOrientationProvider(requireActivity())
+            );
         }
     }
 

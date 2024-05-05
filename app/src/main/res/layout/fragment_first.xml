@@ -16,7 +16,7 @@
         app:layout_constraintTop_toTopOf="parent"
         android:layout_weight="1" />
 
-    <ac.uk.hope.osmviewer.OrientationProviderMapView.OrientationProviderMapView
+    <ac.uk.hope.osmviewer.OrientableMapView.OrientableMapView
         android:id="@+id/map"
         android:layout_width="0dp"
         android:layout_height="0dp"
