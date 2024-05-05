@@ -1,41 +1,47 @@
 package ac.uk.hope.osmviewer;
 
-import static androidx.core.content.PermissionChecker.PERMISSION_DENIED;
-import static androidx.core.content.PermissionChecker.PERMISSION_GRANTED;
-
-import android.content.Context;
-import android.content.DialogInterface;
 import android.Manifest;
+import android.content.Context;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.preference.PreferenceManager;
 
 import ac.uk.hope.osmviewer.databinding.FragmentFirstBinding;
 
+import org.osmdroid.api.IMapController;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.ScaleBarOverlay;
+import org.osmdroid.views.overlay.compass.CompassOverlay;
+import org.osmdroid.views.overlay.compass.InternalCompassOrientationProvider;
+import org.osmdroid.views.overlay.gestures.RotationGestureOverlay;
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
 public class FirstFragment extends Fragment {
 
     private FragmentFirstBinding binding;
     private static final String TAG = FirstFragment.class.getSimpleName();
-    private ActivityResultLauncher<String[]> locationPermissionLauncher;
-    private ActivityResultLauncher<String[]> networkPermissionLauncher;
-    private ActivityResultLauncher<String> storagePermissionLauncher;
-    private MapView map = null;
+    private ActivityResultLauncher<String[]> mLocationPermissionLauncher;
+    private ActivityResultLauncher<String[]> mNetworkPermissionLauncher;
+    private ActivityResultLauncher<String> mStoragePermissionLauncher;
+    private MapView mMap;
+    private CompassOverlay mCompassOverlay;
+    private MyLocationNewOverlay mLocationOverlay;
+    private RotationGestureOverlay mRotationGestureOverlay;
+    private ScaleBarOverlay mScaleBarOverlay;
 
 
     @Override
@@ -45,7 +51,7 @@ public class FirstFragment extends Fragment {
     ) {
 
         // register permissions callbacks
-        locationPermissionLauncher = registerForActivityResult(
+        mLocationPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
             result -> {
                 Boolean fineLocationGranted = result.getOrDefault(
@@ -62,7 +68,7 @@ public class FirstFragment extends Fragment {
             }
         );
 
-        networkPermissionLauncher = registerForActivityResult(
+        mNetworkPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(),
             result -> {
                 Boolean networkGranted = result.getOrDefault(
@@ -78,7 +84,7 @@ public class FirstFragment extends Fragment {
             }
         );
 
-        storagePermissionLauncher = registerForActivityResult(
+        mStoragePermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(),
             allowed -> {
                 if (allowed) {
@@ -109,34 +115,67 @@ public class FirstFragment extends Fragment {
 
         // setup permissions for the map
         // TODO: follow best guidance in https://developer.android.com/training/permissions/requesting#java
-        locationPermissionLauncher.launch(new String[] {
+        mLocationPermissionLauncher.launch(new String[] {
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
         });
 
-        networkPermissionLauncher.launch(new String[] {
+        mNetworkPermissionLauncher.launch(new String[] {
                 Manifest.permission.ACCESS_NETWORK_STATE,
                 Manifest.permission.INTERNET
         });
 
-        storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        mStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
 
         // show map
-        map = (MapView) view.findViewById(R.id.map);
-        map.setTileSource(TileSourceFactory.MAPNIK);
+        mMap = (MapView) view.findViewById(R.id.map);
+        mMap.setTileSource(TileSourceFactory.MAPNIK);
+        mMap.setMultiTouchControls(true);
+        IMapController mapController = mMap.getController();
+        mapController.setZoom(9.5);
+        GeoPoint startPoint = new GeoPoint(48.8583, 2.2944);
+        mapController.setCenter(startPoint);
+
+        // add current location
+        mLocationOverlay = new MyLocationNewOverlay(
+                new GpsMyLocationProvider(requireActivity()),mMap
+        );
+        mLocationOverlay.enableMyLocation();
+        mMap.getOverlays().add(this.mLocationOverlay);
+
+        // add compass
+        mCompassOverlay = new CompassOverlay(
+                requireActivity(),
+                new InternalCompassOrientationProvider(requireActivity()),
+                mMap
+        );
+        mCompassOverlay.enableCompass();
+        mMap.getOverlays().add(this.mCompassOverlay);
+
+        // allow multi-touch rotation
+        mRotationGestureOverlay = new RotationGestureOverlay(mMap);
+        mRotationGestureOverlay.setEnabled(true);
+        mMap.getOverlays().add(mRotationGestureOverlay);
+
+        // show a scale bar
+        final DisplayMetrics dm = requireActivity().getResources().getDisplayMetrics();
+        mScaleBarOverlay = new ScaleBarOverlay(mMap);
+        mScaleBarOverlay.setCentred(true);
+        mScaleBarOverlay.setScaleBarOffset(dm.widthPixels / 2, 10);
+        mMap.getOverlays().add(this.mScaleBarOverlay);
 
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        map.onResume();
+        mMap.onResume();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        map.onPause();
+        mMap.onPause();
     }
 
     @Override
